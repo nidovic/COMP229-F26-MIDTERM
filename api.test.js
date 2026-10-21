@@ -45,7 +45,7 @@ async function startApi(t) {
     } catch { await delay(50); }
   }
   assert.ok(ready, `Server did not respond on PORT=${port}. ${logs}`);
-  return async (method, route, body) => {
+  return async (method, route, body, expectedStatus) => {
     const response = await fetch(base + route, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -53,7 +53,11 @@ async function startApi(t) {
       signal: AbortSignal.timeout(4000)
     });
     const text = await response.text();
-    assert.ok(response.ok, `${method} ${route}: expected success, received ${response.status}: ${text.slice(0, 150)}`);
+    if (expectedStatus === undefined) {
+      assert.ok(response.ok, `${method} ${route}: expected success, received ${response.status}: ${text.slice(0, 150)}`);
+    } else {
+      assert.equal(response.status, expectedStatus, `${method} ${route}: ${text.slice(0, 150)}`);
+    }
     try { return text ? JSON.parse(text) : null; } catch { return text; }
   };
 }
@@ -127,4 +131,16 @@ test('DELETE: removes the requested item and the following indexes shift', async
   const after = await call('GET', '/api/equipment');
   assert.deepEqual(after, before.slice(1));
   assert.deepEqual(fields(await call('GET', '/api/equipment/0')), fields(before[1]));
+});
+
+test('Validation: rejects invalid IDs, missing categories, and invalid equipment data', async t => {
+  const call = await startApi(t);
+  const invalidId = await call('GET', '/api/equipment/not-an-index', undefined, 400);
+  const missingCategory = await call('GET', '/api/equipment/filter?category=', undefined, 400);
+  const invalidEquipment = await call('POST', '/api/equipment', { ...example, quantity: '2' }, 400);
+
+  for (const result of [invalidId, missingCategory, invalidEquipment]) {
+    assert.ok(Array.isArray(result.errors), 'Validation errors must be returned as a JSON array');
+  }
+  assert.ok(invalidEquipment.errors.some(error => error.path === 'quantity'));
 });

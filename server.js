@@ -5,8 +5,10 @@
  * Add exactly two personalized items to the five supplied below.
  */
 import express from 'express';
+import { body, param, query, validationResult } from 'express-validator';
 
 const app = express();
+app.set('json spaces', 2);
 app.use(express.json());
 
 let equipment = [
@@ -19,23 +21,55 @@ let equipment = [
   { name: 'HD Video Camera', category: 'video', brand: 'Canon', year: 2018, quantity: 3 }
 ];
 
-// Converts the URL ID to a valid index, or returns null if it is invalid.
-function parseIndex(id) {
-  if (!/^\d+$/.test(id)) return null;
-  const index = Number(id);
-  return Number.isSafeInteger(index) ? index : null;
+function handleValidationErrors(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
 }
 
-// Checks that the item has all required fields with valid values.
-function isEquipmentItem(item) {
-  return item !== null
-    && typeof item === 'object'
-    && !Array.isArray(item)
-    && ['name', 'category', 'brand'].every(key => typeof item[key] === 'string' && item[key].trim() !== '')
-    && Number.isInteger(item.year)
-    && Number.isInteger(item.quantity)
-    && item.quantity >= 0;
-}
+const idValidation = [
+  param('id')
+    .isInt({ min: 0 })
+    .withMessage('ID must be a non-negative integer.')
+    .bail()
+    .custom(id => /^\d+$/.test(id) && Number.isSafeInteger(Number(id)))
+    .withMessage('ID must be a safe integer.')
+];
+
+const equipmentValidation = [
+  body('name')
+    .isString()
+    .withMessage('Name must be a string.')
+    .bail()
+    .custom(value => value.trim() !== '')
+    .withMessage('Name cannot be empty.'),
+  body('category')
+    .isString()
+    .withMessage('Category must be a string.')
+    .bail()
+    .custom(value => value.trim() !== '')
+    .withMessage('Category cannot be empty.'),
+  body('brand')
+    .isString()
+    .withMessage('Brand must be a string.')
+    .bail()
+    .custom(value => value.trim() !== '')
+    .withMessage('Brand cannot be empty.'),
+  body('year')
+    .isInt()
+    .withMessage('Year must be an integer.')
+    .bail()
+    .custom(value => typeof value === 'number')
+    .withMessage('Year must be a number.'),
+  body('quantity')
+    .isInt({ min: 0 })
+    .withMessage('Quantity must be a non-negative integer.')
+    .bail()
+    .custom(value => typeof value === 'number')
+    .withMessage('Quantity must be a number.')
+];
 
 // Returns the complete equipment collection.
 app.get('/api/equipment', (req, res) => {
@@ -44,51 +78,43 @@ app.get('/api/equipment', (req, res) => {
 
 // Keep the filter route before /:id.
 // Returns only the equipment in the requested category.
-app.get('/api/equipment/filter', (req, res) => {
+app.get('/api/equipment/filter', [
+  query('category')
+    .isString()
+    .withMessage('A category query parameter is required.')
+    .bail()
+    .custom(category => category.trim() !== '')
+    .withMessage('Category cannot be empty.'),
+  handleValidationErrors
+], (req, res) => {
   const { category } = req.query;
-  if (typeof category !== 'string' || category.trim() === '') {
-    return res.status(400).json({ error: 'A category query parameter is required.' });
-  }
   res.json(equipment.filter(item => item.category === category));
 });
 
 // Finds an equipment item by its array index.
-app.get('/api/equipment/:id', (req, res) => {
-  const index = parseIndex(req.params.id);
-  if (index === null) return res.status(400).json({ error: 'ID must be a non-negative integer.' });
+app.get('/api/equipment/:id', idValidation, handleValidationErrors, (req, res) => {
+  const index = Number(req.params.id);
   if (index >= equipment.length) return res.status(404).json({ error: 'Equipment item not found.' });
   res.json(equipment[index]);
 });
 
 // Validates and adds a new equipment item to the collection.
-app.post('/api/equipment', (req, res) => {
-  if (!isEquipmentItem(req.body)) {
-    return res.status(400).json({
-      error: 'Equipment must include non-empty name, category, and brand strings, and integer year and non-negative quantity values.'
-    });
-  }
+app.post('/api/equipment', equipmentValidation, handleValidationErrors, (req, res) => {
   equipment.push(req.body);
   res.status(201).json(req.body);
 });
 
 // Validates and replaces the equipment item at the requested index.
-app.put('/api/equipment/:id', (req, res) => {
-  const index = parseIndex(req.params.id);
-  if (index === null) return res.status(400).json({ error: 'ID must be a non-negative integer.' });
+app.put('/api/equipment/:id', idValidation, equipmentValidation, handleValidationErrors, (req, res) => {
+  const index = Number(req.params.id);
   if (index >= equipment.length) return res.status(404).json({ error: 'Equipment item not found.' });
-  if (!isEquipmentItem(req.body)) {
-    return res.status(400).json({
-      error: 'Equipment must include non-empty name, category, and brand strings, and integer year and non-negative quantity values.'
-    });
-  }
   equipment[index] = req.body;
   res.json(req.body);
 });
 
 // Deletes the requested item; subsequent indexes shift down by one.
-app.delete('/api/equipment/:id', (req, res) => {
-  const index = parseIndex(req.params.id);
-  if (index === null) return res.status(400).json({ error: 'ID must be a non-negative integer.' });
+app.delete('/api/equipment/:id', idValidation, handleValidationErrors, (req, res) => {
+  const index = Number(req.params.id);
   if (index >= equipment.length) return res.status(404).json({ error: 'Equipment item not found.' });
   res.json(equipment.splice(index, 1)[0]);
 });
