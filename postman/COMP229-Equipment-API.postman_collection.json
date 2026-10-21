@@ -1,0 +1,185 @@
+{
+  "info": {
+    "_postman_id": "d50d0fd2-c170-4f87-ae3f-0c91b8891a24",
+    "name": "COMP229 Equipment API",
+    "description": "Requests for all six COMP229 midterm equipment API endpoints. Run in order against a freshly started server to verify the seven-item starting collection and CRUD operations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - GET all equipment",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/equipment",
+        "description": "Returns the complete starting collection. The personalized collection should contain seven items."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response contains seven equipment items', function () {",
+              "  const items = pm.response.json();",
+              "  pm.expect(items).to.be.an('array').with.lengthOf(7);",
+              "  pm.expect(items[5].year).to.be.within(2010, 2019);",
+              "  pm.expect(items[6].year).to.be.within(2010, 2019);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - GET equipment by category",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/equipment/filter?category=audio",
+        "description": "Returns only equipment whose category is audio."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Every result is in the requested category', function () {",
+              "  pm.response.json().forEach(function (item) { pm.expect(item.category).to.eql('audio'); });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - GET equipment by index",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/equipment/0",
+        "description": "Returns the first equipment item (array index 0)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response is the first equipment item', function () {",
+              "  pm.expect(pm.response.json().name).to.eql('USB Microphone');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - POST add equipment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Test Recorder\",\n  \"category\": \"audio\",\n  \"brand\": \"Postman\",\n  \"year\": 2017,\n  \"quantity\": 2\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/equipment",
+        "description": "Adds one equipment item; collection size increases by one."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201 Created', function () { pm.response.to.have.status(201); });",
+              "pm.test('Created item matches the request body', function () {",
+              "  pm.expect(pm.response.json().name).to.eql('Postman Test Recorder');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - PUT update equipment at index 0",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Postman Recorder\",\n  \"category\": \"audio\",\n  \"brand\": \"Postman\",\n  \"year\": 2018,\n  \"quantity\": 4\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/equipment/0",
+        "description": "Replaces the equipment item at index 0 without changing the collection size."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Updated item is returned', function () {",
+              "  pm.expect(pm.response.json().name).to.eql('Updated Postman Recorder');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - DELETE equipment at index 0",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/equipment/0",
+        "description": "Removes the equipment item at index 0; following indexes shift down."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Deleted item is returned', function () {",
+              "  pm.expect(pm.response.json().name).to.eql('Updated Postman Recorder');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
